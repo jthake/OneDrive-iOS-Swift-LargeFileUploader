@@ -180,26 +180,46 @@ class OneDriveManager : NSObject {
     }
     
     
-    func uploadBytes(strVideoFileUrl:String, uploadUrl:String, completion: @escaping (OneDriveManagerResult, _ expirationDateTime: String?, _ nextExpectedRanges: [String]?) -> Void) {
-
+    let partSize: Int = 327680;
+    func uploadBytes(uploadUrl:String, completion: @escaping (OneDriveManagerResult, _ webUrl: String?) -> Void) {
         let image = UIImage(named: "Small_Red_Rose")
-        //TODO: how to get video stream into Data object
-        //let videoFileUrl = NSURL(string: strVideoFileUrl)
         let data = UIImageJPEGRepresentation(image!, 1.0) as Data?
-        var imageSize: Int = data!.count
-        let strContentRange = "bytes 0-\(imageSize - 1)/\(imageSize)"
+        let imageSize: Int = data!.count
+        var returnWebUrl: String? = ""
+     
+        for startPointer in stride(from: 0, to: imageSize, by: partSize) {
+            uploadByteParts(uploadUrl: uploadUrl, data: data!, startPointer: startPointer, endPointer: startPointer + partSize - 1, imageSize: imageSize, completion: { (result: OneDriveManagerResult, webUrl) -> Void in
+                switch(result) {
+                    case .Success:
+                        if (webUrl?.count != 0) { returnWebUrl = webUrl }
+                    case .Failure(let error):
+                        completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil)
+                }
+            })
+            //TODO: need to work away to fire these recursively waiting on the next so can return web url
+            usleep(1000000)
+        }
+        completion(OneDriveManagerResult.Success, returnWebUrl)
+    }
+    
+    func uploadByteParts(uploadUrl:String, data:Data,startPointer:Int, endPointer:Int, imageSize:Int, completion: @escaping (OneDriveManagerResult, _ webUrl: String?) -> Void) {
+        
+        var dataEndPointer = endPointer
+        if (endPointer + 1 >= imageSize){
+            dataEndPointer = imageSize - 1
+        }
+        let strContentRange = "bytes \(startPointer)-\(dataEndPointer)/\(imageSize)"
         print(strContentRange)
         
         let defaultSession = URLSession(configuration: .default)
         var request = URLRequest(url: URL(string: uploadUrl)!)
         request.httpMethod = "PUT"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("\(imageSize)", forHTTPHeaderField: "Content-Length")
+        request.setValue("\(partSize)", forHTTPHeaderField: "Content-Length")
         request.setValue(strContentRange, forHTTPHeaderField: "Content-Range")
         
-        //TODO: how to get fragments to send rather than full Data
-        let uploadTask = defaultSession.uploadTask(with: request, from: data,
-                                                   completionHandler: { (responseData, response, error) in
+        let uploadTask = defaultSession.uploadTask(with: request, from: data[startPointer ... dataEndPointer],
+           completionHandler: { (responseData, response, error) in
             if let httpResponse = response as? HTTPURLResponse {
                 switch httpResponse.statusCode {
                 case 200..<300:
@@ -213,18 +233,20 @@ class OneDriveManager : NSObject {
                 }
             }
             
-            if let responseData = responseData,
-                let responseString = String(data: responseData, encoding: String.Encoding.utf8) {
-                print("Server Response:")
-                //webUrl comes back here
-                print(responseString)
-                
-                completion(OneDriveManagerResult.Success, nil, nil)
+            if let responseData = responseData {
+                do {
+                    let jsonResponse = try JSONSerialization.jsonObject(with: responseData, options: [])  as? [String: Any]
+                    let webUrl = jsonResponse!["webUrl"] as? String
+                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)), webUrl)
+                }
+                catch{
+                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil)
+                }
             }
             
             // Do something with the error
             if let error = error {
-                completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil, nil)
+                completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil)
             }
         })
         uploadTask.resume()
