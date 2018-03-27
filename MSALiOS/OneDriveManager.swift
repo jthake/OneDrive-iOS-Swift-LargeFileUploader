@@ -186,6 +186,7 @@ class OneDriveManager : NSObject {
         let data = UIImageJPEGRepresentation(image!, 1.0) as Data?
         let imageSize: Int = data!.count
         var returnWebUrl: String? = ""
+     
         
         for startPointer in stride(from: 0, to: imageSize, by: partSize) {
             uploadByteParts(uploadUrl: uploadUrl, data: data!, startPointer: startPointer, endPointer: startPointer + partSize - 1, imageSize: imageSize, completion: { (result: OneDriveManagerResult, webUrl) -> Void in
