@@ -54,118 +54,115 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
     
     /**
      This button will invoke the authorization flow.
-    */
-
-@IBAction func callGraphButton(_ sender: UIButton) {
-    do {
-        
-        // We check to see if we have a current logged in user. If we don't, then we need to sign someone in.
-        // We throw an interactionRequired so that we trigger the interactive signin.
-        
-        
-        if  try self.applicationContext.users().isEmpty {
-            throw NSError.init(domain: "MSALErrorDomain", code: MSALErrorCode.interactionRequired.rawValue, userInfo: nil)
-        } else {
-        
-        /**
-         
-         Acquire a token for an existing user silently
-         
-         - forScopes: Permissions you want included in the access token received
-         in the result in the completionBlock. Not all scopes are
-         gauranteed to be included in the access token returned.
-         - User: A user object that we retrieved from the application object before that the
-         authentication flow will be locked down to.
-         - completionBlock: The completion block that will be called when the authentication
-         flow completes, or encounters an error.
-         */
-        
-        try self.applicationContext.acquireTokenSilent(forScopes: self.kScopes, user: applicationContext.users().first) { (result, error) in
-
-                if error == nil {
-                    self.accessToken = (result?.accessToken)!
-                    self.oneDriveManager.accessToken = self.accessToken
+     */
+    
+    @IBAction func callGraphButton(_ sender: UIButton) {
+        do {
+            
+            // We check to see if we have a current logged in user. If we don't, then we need to sign someone in.
+            // We throw an interactionRequired so that we trigger the interactive signin.
+            
+            
+            if  try self.applicationContext.users().isEmpty {
+                throw NSError.init(domain: "MSALErrorDomain", code: MSALErrorCode.interactionRequired.rawValue, userInfo: nil)
+            } else {
+                
+                /**
+                 
+                 Acquire a token for an existing user silently
+                 
+                 - forScopes: Permissions you want included in the access token received
+                 in the result in the completionBlock. Not all scopes are
+                 gauranteed to be included in the access token returned.
+                 - User: A user object that we retrieved from the application object before that the
+                 authentication flow will be locked down to.
+                 - completionBlock: The completion block that will be called when the authentication
+                 flow completes, or encounters an error.
+                 */
+                
+                try self.applicationContext.acquireTokenSilent(forScopes: self.kScopes, user: applicationContext.users().first) { (result, error) in
                     
-                    DispatchQueue.main.async {
-                        self.loggingText.text = "Refreshing token silently)"
-                        self.loggingText.text = "Refreshed Access token is \(self.accessToken)"
+                    if error == nil {
+                        self.accessToken = (result?.accessToken)!
+                        self.oneDriveManager.accessToken = self.accessToken
                         
-                        self.signoutButton.isEnabled = true;
-                    }
+                        DispatchQueue.main.async {
+                            self.loggingText.text = "Refreshing token silently)"
+                            self.loggingText.text = "Refreshed Access token is \(self.accessToken)"
+                            
+                            self.signoutButton.isEnabled = true;
+                        }
                         self.getContentWithToken()
                         self.getAppMetadata()
-                    
+                        
                         self.oneDriveManager.getAppFolderId(completion: { (result: OneDriveManagerResult, appFolderId) -> Void in
                             switch(result) {
-                                case .Success:
-                                    self.appFolderId = appFolderId
-                                    print ("\(self.appFolderId))")
-                                    
-                                    /**
-                                    let fileName = "test.txt"
-                                    
-                                    self.oneDriveManager.createTextFile(fileName: fileName, folderId: appFolderId!, completion: { (result: OneDriveManagerResult, webUrl)  -> Void in
-                                        switch(result) {
+                            case .Success:
+                                self.appFolderId = appFolderId
+                                print ("\(self.appFolderId))")
+                                
+                                /**
+                                 let fileName = "test.txt"
+                                 
+                                 self.oneDriveManager.createTextFile(fileName: fileName, folderId: appFolderId!, completion: { (result: OneDriveManagerResult, webUrl)  -> Void in
+                                 switch(result) {
+                                 case .Success:
+                                 print ("success (\(webUrl)")
+                                 case .Failure(let error):
+                                 print("\(error)")
+                                 }
+                                 })
+                                 
+                                 let folderName = "testing"
+                                 self.oneDriveManager.createFolder(folderName: folderName, folderId: appFolderId!, completion: { (result: OneDriveManagerResult)  -> Void in
+                                 switch(result) {
+                                 case .Success:
+                                 print ("success")
+                                 case .Failure(let error):
+                                 print("\(error)")
+                                 }
+                                 })
+                                 
+                                 **/
+                                
+                                self.oneDriveManager.createUploadSession(fileName: "rose.jpg", folderId: appFolderId!,  completion: { (result: OneDriveManagerResult, uploadUrl, expirationDateTime, nextExpectedRanges) -> Void in
+                                    switch(result) {
+                                    case .Success:
+                                        print ("success on creating session (\(String(describing: uploadUrl)) (\(String(describing: expirationDateTime))")
+                                        
+                                        self.oneDriveManager.uploadBytes(uploadUrl: uploadUrl!,  completion: { (result: OneDriveManagerResult, webUrl) -> Void in
+                                            switch(result) {
                                             case .Success:
-                                                print ("success (\(webUrl)")
+                                                print ("success (\(String(describing: uploadUrl)) (\(String(describing: webUrl))")
                                             case .Failure(let error):
                                                 print("\(error)")
                                             }
-                                    })
+                                        })
+                                    case .Failure(let error):
+                                        print("\(error)")
+                                    }
+                                })
                                 
-                                    let folderName = "testing"
-                                    self.oneDriveManager.createFolder(folderName: folderName, folderId: appFolderId!, completion: { (result: OneDriveManagerResult)  -> Void in
-                                        switch(result) {
-                                            case .Success:
-                                                print ("success")
-                                            case .Failure(let error):
-                                                print("\(error)")
-                                        }
-                                    })
- 
-                                    **/
-                                    
-                                    self.oneDriveManager.createUploadSession(fileName: "rose.jpg", folderId: appFolderId!,  completion: { (result: OneDriveManagerResult, uploadUrl, expirationDateTime, nextExpectedRanges) -> Void in
-                                        switch(result) {
-                                            case .Success:
-                                                print ("success on creating session (\(String(describing: uploadUrl)) (\(String(describing: expirationDateTime))")
-                                                
-                                                //TODO: fetch video file from device
-                                                let strVideoFileUrl = "file:///private/var/mobile/Containers/Data/Application/613B723A-49B4-4279-A43E-43F284C5FE84/tmp/3D1D335D-83F0-468D-ABE1-2599A576C786.mov"
-                                                
-                                                self.oneDriveManager.uploadBytes(strVideoFileUrl: strVideoFileUrl, uploadUrl: uploadUrl!,  completion: { (result: OneDriveManagerResult, expirationDateTime, nextExpectedRanges) -> Void in
-                                                    switch(result) {
-                                                        case .Success:
-                                                            print ("success (\(String(describing: uploadUrl)) (\(String(describing: expirationDateTime))")
-                                                        case .Failure(let error):
-                                                            print("\(error)")
-                                                    }
-                                                })
-                                            case .Failure(let error):
-                                                print("\(error)")
-                                        }
-                                    })
-                                
-                                case .Failure(let error):
-                                    print("\(error)")
+                            case .Failure(let error):
+                                print("\(error)")
                             }
                         })
-                } else {
-                    DispatchQueue.main.async {
-                        self.loggingText.text = "Could not acquire token silently: \(error ?? "No error informarion" as! Error)"
+                    } else {
+                        DispatchQueue.main.async {
+                            self.loggingText.text = "Could not acquire token silently: \(error ?? "No error informarion" as! Error)"
+                        }
                     }
                 }
             }
-        }
-    }  catch let error as NSError {
-        
-        // interactionRequired means we need to ask the user to sign-in. This usually happens
-        // when the user's Refresh Token is expired or if the user has changed their password
-        // among other possible reasons.
-        
-        if error.code == MSALErrorCode.interactionRequired.rawValue {
+        }  catch let error as NSError {
             
-            self.applicationContext.acquireToken(forScopes: self.kScopes) { (result, error) in
+            // interactionRequired means we need to ask the user to sign-in. This usually happens
+            // when the user's Refresh Token is expired or if the user has changed their password
+            // among other possible reasons.
+            
+            if error.code == MSALErrorCode.interactionRequired.rawValue {
+                
+                self.applicationContext.acquireToken(forScopes: self.kScopes) { (result, error) in
                     if error == nil {
                         self.accessToken = (result?.accessToken)!
                         self.loggingText.text = "Access token is \(self.accessToken)"
@@ -175,19 +172,19 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
                     } else  {
                         self.loggingText.text = "Could not acquire token: \(error ?? "No error informarion" as! Error)"
                     }
+                }
+                
             }
             
+        } catch {
+            
+            // This is the catch all error.
+            
+            self.loggingText.text = "Unable to acquire token. Got error: \(error)"
+            
         }
-        
-    } catch {
-        
-        // This is the catch all error.
-        
-        self.loggingText.text = "Unable to acquire token. Got error: \(error)"
-        
     }
-    }
-
+    
     
     /**
      This button will invoke the call to the Microsoft Graph API. It uses the
@@ -199,25 +196,25 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
      password.
      
      */
-
- func getContentWithToken() {
     
-    let sessionConfig = URLSessionConfiguration.default
-    
-    let url = URL(string: kGraphURI)
-    var request = URLRequest(url: url!)
-    request.setValue("Bearer \(self.accessToken)", forHTTPHeaderField: "Authorization")
-    let urlSession = URLSession(configuration: sessionConfig, delegate: self, delegateQueue: OperationQueue.main)
-    
-    urlSession.dataTask(with: request) { data, response, error in
+    func getContentWithToken() {
         
-        let result = try? JSONSerialization.jsonObject(with: data!, options: [])
-                    if result != nil {
+        let sessionConfig = URLSessionConfiguration.default
+        
+        let url = URL(string: kGraphURI)
+        var request = URLRequest(url: url!)
+        request.setValue("Bearer \(self.accessToken)", forHTTPHeaderField: "Authorization")
+        let urlSession = URLSession(configuration: sessionConfig, delegate: self, delegateQueue: OperationQueue.main)
+        
+        urlSession.dataTask(with: request) { data, response, error in
+            
+            let result = try? JSONSerialization.jsonObject(with: data!, options: [])
+            if result != nil {
                 
                 self.loggingText.text = result.debugDescription
             }
-        }.resume()
-}
+            }.resume()
+    }
     
     func getAppMetadata() {
         let sessionConfig = URLSessionConfiguration.default
@@ -233,16 +230,16 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
                 
                 self.loggingText.text = result.debugDescription
             }
-        }.resume()
+            }.resume()
     }
-
-      /**
+    
+    /**
      This button will invoke the signout APIs to clear the token cache.
      
      */
-
-@IBAction func signoutButton(_ sender: UIButton) {
     
+    @IBAction func signoutButton(_ sender: UIButton) {
+        
         do {
             
             /**
@@ -256,7 +253,7 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
             
         } catch let error {
             self.loggingText.text = "Received error signing user out: \(error)"
-            }
+        }
     }
     
     override func viewDidLoad() {
@@ -288,7 +285,7 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
             
         }
     }
-
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
@@ -302,6 +299,6 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
             
         }
     }
-
+    
 }
 

@@ -20,9 +20,9 @@ enum OneDriveAPIError: Error {
 class OneDriveManager : NSObject {
     //TODO: hard coded end point
     var baseURL: String = "https://graph.microsoft.com/v1.0/"
-
+    
     var accessToken = String()
-
+    
     override init() {
         super.init()
     }
@@ -48,26 +48,26 @@ class OneDriveManager : NSObject {
             print("status code = \(statusCode)")
             
             switch(statusCode) {
-                case 200:
-                    do{
-                        let json = try JSONSerialization.jsonObject(with: data!, options: JSONSerialization.ReadingOptions()) as! [String:Any]
-                        print((json.description)) // outputs whole JSON
-                        
-                        guard let folderId = json["id"] as? String else {
-                            completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)), nil)
-                            return
-                        }
-                        completion(OneDriveManagerResult.Success, folderId)
+            case 200:
+                do{
+                    let json = try JSONSerialization.jsonObject(with: data!, options: JSONSerialization.ReadingOptions()) as! [String:Any]
+                    print((json.description)) // outputs whole JSON
+                    
+                    guard let folderId = json["id"] as? String else {
+                        completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)), nil)
+                        return
                     }
-                    catch{
-                        completion(OneDriveManagerResult.Failure(OneDriveAPIError.JSONParseError), nil)
-                    }
+                    completion(OneDriveManagerResult.Success, folderId)
+                }
+                catch{
+                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.JSONParseError), nil)
+                }
                 
-                case 404:
-                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.ResourceNotFound), nil)
+            case 404:
+                completion(OneDriveManagerResult.Failure(OneDriveAPIError.ResourceNotFound), nil)
                 
-                default:
-                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)), nil)
+            default:
+                completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)), nil)
                 
             }
         })
@@ -98,22 +98,22 @@ class OneDriveManager : NSObject {
             print("status code = \(statusCode)")
             
             switch(statusCode) {
-                case 200, 201:
-                    do {
-                        let jsonResponse = try JSONSerialization.jsonObject(with: data!, options: [])  as? [String: Any]
-                        print((jsonResponse?.description)!) // outputs whole JSON
-                        
-                        guard let webUrl = jsonResponse!["webUrl"] as? String else {
-                            completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)), nil)
-                            return
-                        }
-                        completion(OneDriveManagerResult.Success, webUrl)
+            case 200, 201:
+                do {
+                    let jsonResponse = try JSONSerialization.jsonObject(with: data!, options: [])  as? [String: Any]
+                    print((jsonResponse?.description)!) // outputs whole JSON
+                    
+                    guard let webUrl = jsonResponse!["webUrl"] as? String else {
+                        completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)), nil)
+                        return
                     }
-                    catch{
-                        completion(OneDriveManagerResult.Failure(OneDriveAPIError.JSONParseError), nil)
-                    }
-                default:
-                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)),nil)
+                    completion(OneDriveManagerResult.Success, webUrl)
+                }
+                catch{
+                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.JSONParseError), nil)
+                }
+            default:
+                completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)),nil)
             }
         })
         task.resume()
@@ -130,8 +130,8 @@ class OneDriveManager : NSObject {
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         let emptyParams = Dictionary<String, String>()
         let params = ["item": [
-                      "@microsoft.graph.conflictBehavior":"rename",
-                      "name":fileName]] as [String : Any]
+            "@microsoft.graph.conflictBehavior":"rename",
+            "name":fileName]] as [String : Any]
         
         request.httpBody = try! JSONSerialization.data(withJSONObject: params, options: JSONSerialization.WritingOptions())
         
@@ -180,56 +180,78 @@ class OneDriveManager : NSObject {
     }
     
     
-    func uploadBytes(strVideoFileUrl:String, uploadUrl:String, completion: @escaping (OneDriveManagerResult, _ expirationDateTime: String?, _ nextExpectedRanges: [String]?) -> Void) {
-
+    let partSize: Int = 327680;
+    func uploadBytes(uploadUrl:String, completion: @escaping (OneDriveManagerResult, _ webUrl: String?) -> Void) {
         let image = UIImage(named: "Small_Red_Rose")
-        //TODO: how to get video stream into Data object
-        //let videoFileUrl = NSURL(string: strVideoFileUrl)
         let data = UIImageJPEGRepresentation(image!, 1.0) as Data?
-        var imageSize: Int = data!.count
-        let strContentRange = "bytes 0-\(imageSize - 1)/\(imageSize)"
+        let imageSize: Int = data!.count
+        var returnWebUrl: String? = ""
+        
+        for startPointer in stride(from: 0, to: imageSize, by: partSize) {
+            uploadByteParts(uploadUrl: uploadUrl, data: data!, startPointer: startPointer, endPointer: startPointer + partSize - 1, imageSize: imageSize, completion: { (result: OneDriveManagerResult, webUrl) -> Void in
+                switch(result) {
+                case .Success:
+                    if (webUrl?.count != 0) { returnWebUrl = webUrl }
+                case .Failure(let error):
+                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil)
+                }
+            })
+            //TODO: need to work away to fire these recursively waiting on the next so can return web url
+            usleep(1000000)
+        }
+        completion(OneDriveManagerResult.Success, returnWebUrl)
+    }
+    
+    func uploadByteParts(uploadUrl:String, data:Data,startPointer:Int, endPointer:Int, imageSize:Int, completion: @escaping (OneDriveManagerResult, _ webUrl: String?) -> Void) {
+        
+        var dataEndPointer = endPointer
+        if (endPointer + 1 >= imageSize){
+            dataEndPointer = imageSize - 1
+        }
+        let strContentRange = "bytes \(startPointer)-\(dataEndPointer)/\(imageSize)"
         print(strContentRange)
         
         let defaultSession = URLSession(configuration: .default)
         var request = URLRequest(url: URL(string: uploadUrl)!)
         request.httpMethod = "PUT"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("\(imageSize)", forHTTPHeaderField: "Content-Length")
+        request.setValue("\(partSize)", forHTTPHeaderField: "Content-Length")
         request.setValue(strContentRange, forHTTPHeaderField: "Content-Range")
         
-        //TODO: how to get fragments to send rather than full Data
-        let uploadTask = defaultSession.uploadTask(with: request, from: data,
+        let uploadTask = defaultSession.uploadTask(with: request, from: data[startPointer ... dataEndPointer],
                                                    completionHandler: { (responseData, response, error) in
-            if let httpResponse = response as? HTTPURLResponse {
-                switch httpResponse.statusCode {
-                case 200..<300:
-                    print("Success")
-                case 400..<500:
-                    print("Request error")
-                case 500..<600:
-                    print("Server error")
-                case let otherCode:
-                    print("Other code: \(otherCode)")
-                }
-            }
-            
-            if let responseData = responseData,
-                let responseString = String(data: responseData, encoding: String.Encoding.utf8) {
-                print("Server Response:")
-                //webUrl comes back here
-                print(responseString)
-                
-                completion(OneDriveManagerResult.Success, nil, nil)
-            }
-            
-            // Do something with the error
-            if let error = error {
-                completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil, nil)
-            }
+                                                    if let httpResponse = response as? HTTPURLResponse {
+                                                        switch httpResponse.statusCode {
+                                                        case 200..<300:
+                                                            print("Success")
+                                                        case 400..<500:
+                                                            print("Request error")
+                                                        case 500..<600:
+                                                            print("Server error")
+                                                        case let otherCode:
+                                                            print("Other code: \(otherCode)")
+                                                        }
+                                                    }
+                                                    
+                                                    if let responseData = responseData {
+                                                        do {
+                                                            let jsonResponse = try JSONSerialization.jsonObject(with: responseData, options: [])  as? [String: Any]
+                                                            let webUrl = jsonResponse!["webUrl"] as? String
+                                                            completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)), webUrl)
+                                                        }
+                                                        catch{
+                                                            completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil)
+                                                        }
+                                                    }
+                                                    
+                                                    // Do something with the error
+                                                    if let error = error {
+                                                        completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil)
+                                                    }
         })
         uploadTask.resume()
     }
-
+    
     func createFolder(folderName:String, folderId:String, completion: @escaping (OneDriveManagerResult) -> Void) {
         
         let request = NSMutableURLRequest(url: NSURL(string: "\(baseURL)/me/drive/special/approot:/\(folderName)")! as URL)
@@ -264,7 +286,7 @@ class OneDriveManager : NSObject {
         })
         task.resume()
     }
-
+    
     func syncUsingViewDelta(syncToken:String?,
                             completion: @escaping (OneDriveManagerResult, _ newSyncToken: String?, _ deltaArray: [DeltaItem]?) -> Void) {
         syncUsingViewDelta(syncToken: syncToken, nextLink: nil, currentDeltaArray: [DeltaItem](), completion: completion)
@@ -311,7 +333,7 @@ class OneDriveManager : NSObject {
                 do{
                     let jsonResponse = try JSONSerialization.jsonObject(with: data!, options: [])  as? [String: Any]
                     print((jsonResponse?.description)!) // outputs whole JSON
-
+                    
                     guard let deltaToken = jsonResponse!["@delta.token"] as? String else {
                         completion(OneDriveManagerResult.Failure(OneDriveAPIError.UnspecifiedError(response)), nil, nil)
                         return
