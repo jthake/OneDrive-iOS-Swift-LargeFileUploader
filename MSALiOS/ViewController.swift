@@ -129,14 +129,11 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
                                         switch(result) {
                                             case .Success:
                                                 print ("success on creating session (\(String(describing: uploadUrl)) (\(String(describing: expirationDateTime))")
-                                                
-                                                //TODO: fetch video file from device
-                                                let strVideoFileUrl = "file:///private/var/mobile/Containers/Data/Application/613B723A-49B4-4279-A43E-43F284C5FE84/tmp/3D1D335D-83F0-468D-ABE1-2599A576C786.mov"
-                                                
-                                                self.oneDriveManager.uploadBytes(strVideoFileUrl: strVideoFileUrl, uploadUrl: uploadUrl!,  completion: { (result: OneDriveManagerResult, expirationDateTime, nextExpectedRanges) -> Void in
+                                           
+                                                self.oneDriveManager.uploadBytes(uploadUrl: uploadUrl!,  completion: { (result: OneDriveManagerResult, webUrl) -> Void in
                                                     switch(result) {
                                                         case .Success:
-                                                            print ("success (\(String(describing: uploadUrl)) (\(String(describing: expirationDateTime))")
+                                                            print ("success (\(String(describing: uploadUrl)) (\(String(describing: webUrl))")
                                                         case .Failure(let error):
                                                             print("\(error)")
                                                     }
