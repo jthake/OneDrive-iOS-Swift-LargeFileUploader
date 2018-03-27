@@ -1,14 +1,17 @@
 --- 
 Services: active-directory
 platforms: iOS
-author: brandwe
+author: brandwe, jthake (OneDrive part)
 ---
 
-Microsoft Authentication Library Graph API Sample for Apple iOS in Swift
+OneDrive Large File Uploads with Microsoft Authentication Library Graph API Sample for Apple iOS in Swift
 =====================================
 
 | [Getting Started](https://apps.dev.microsoft.com/)| [Library](https://github.com/AzureAD/microsoft-authentication-library-for-objc) | [Docs](https://aka.ms/aaddev) | [Support](README.md#community-help-and-support)
 | --- | --- | --- | --- |
+
+
+This project is based on the project hosted on [Azure-Samples](https://github.com/Azure-Samples/active-directory-ios-swift-native-v2)
 
 The MSAL preview library for iOS and macOS gives your app the ability to begin using the [Microsoft Cloud](https://cloud.microsoft.com) by supporting [Microsoft Azure Active Directory](https://azure.microsoft.com/en-us/services/active-directory/) and [Microsoft Accounts](https://account.microsoft.com) in a converged experience using industry standard OAuth2 and OpenID Connect. This sample demonstrates all the normal lifecycles your application should experience, including:
 
@@ -16,6 +19,8 @@ The MSAL preview library for iOS and macOS gives your app the ability to begin u
 * How to refresh a token
 * How to call the Microsoft Graph API
 * How to sign a user out of your application
+* Call OneDrive API and create an App Folder
+* Perform a large file upload based on [resumable uploads](https://developer.microsoft.com/en-us/graph/docs/api-reference/v1.0/api/driveitem_createuploadsession)
 
 ## Example
 
@@ -37,7 +42,6 @@ The MSAL preview library for iOS and macOS gives your app the ability to begin u
 ## App Registration 
 
 You will need to have a native client application registered with Microsoft using our [App Registration Portal](http://apps.dev.microsoft.com). You must do this even if you have previousdly registered your app with the legact portal. Once done, you will need add the redirect URI of `msal<your-client-id-here>://auth` in the portal.
-
 
 ## Installation
 
