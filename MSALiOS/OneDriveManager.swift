@@ -75,6 +75,70 @@ class OneDriveManager : NSObject {
         task.resume()
     }
     
+    func createSharingLink(fileId:String,
+                        completion: @escaping (OneDriveManagerResult, _ webUrl: String?) -> Void) {
+        
+        let request = NSMutableURLRequest(url: URL(string: "\(baseURL)/me/drive/items/\(fileId)/createLink")!)
+        
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody =  ("{\"type\": \"view\",\"scope\": \"anonymous\"}" as NSString).data(using: String.Encoding.utf8.rawValue)
+        
+        let task = URLSession.shared.dataTask(with: request as URLRequest, completionHandler: {
+            (data, response, error) -> Void in
+            
+            guard error == nil else {
+                print("error calling upload")
+                print(error!)
+                return
+            }
+            guard let responseData = data else {
+                print("Error: did not receive data")
+                return
+            }
+    
+            do{
+                let json = try JSONSerialization.jsonObject(with: responseData, options: JSONSerialization.ReadingOptions()) as! [String:Any]
+                print((json.description)) // outputs whole JSON
+                
+                let decoder = JSONDecoder()
+                let sharingLinkRespObj = try decoder.decode(SharingLinkRespObj.self, from: responseData)
+                
+                let webUrl = sharingLinkRespObj.link.webUrl
+                completion(OneDriveManagerResult.Success, webUrl)
+            }
+            catch{
+                completion(OneDriveManagerResult.Failure(OneDriveAPIError.JSONParseError), nil)
+            }
+        })
+        
+        task.resume()
+    }
+    
+    
+    /*
+     [
+        "link": {
+                     application =     {
+                     id = 4c211b04;
+                 };
+         type = view;
+         webUrl = "https://1drv.ms/u/s!AuIrNnKy4gormcI5WGgWHKcB5-2YZA";
+         }, "@odata.type": #microsoft.graph.permission, "id": ZKyb1FYbYhklX74gxTQ3IaFRuXE, "roles": <__NSSingleObjectArrayI 0x60000001a520>(
+                         read
+                         )
+     , "shareId": s!AuIrNnKy4gormcI5WGgWHKcB5-2YZA, "@odata.context": https://graph.microsoft.com/v1.0/$metadata#permission]
+     */
+    struct SharingLinkRespObj : Decodable {
+        let id: String
+        let roles: [String]?
+        let link: LinkRespObj
+    }
+    struct LinkRespObj : Decodable {
+        let webUrl:String?
+    }
+    
     func createTextFile(fileName:String, folderId:String, completion: @escaping (OneDriveManagerResult, _ appFolderId: String?) -> Void) {
         
         let config = URLSessionConfiguration.default
@@ -180,11 +244,12 @@ class OneDriveManager : NSObject {
     
     
     let partSize: Int = 327680;
-    func uploadBytes(uploadUrl:String, completion: @escaping (OneDriveManagerResult, _ webUrl: String?) -> Void) {
+    func uploadBytes(uploadUrl:String, completion: @escaping (OneDriveManagerResult, _ webUrl: String?, _ fileId: String?) -> Void) {
         let image = UIImage(named: "Small_Red_Rose")
         let data = UIImageJPEGRepresentation(image!, 1.0) as Data?
         let imageSize: Int = data!.count
         var returnWebUrl: String?
+        var returnFileId: String?
         var returnNextExpectedRange: Int = 0
         
         let dispatchGroup = DispatchGroup()
@@ -195,16 +260,17 @@ class OneDriveManager : NSObject {
         urlSessionConfiguration.httpMaximumConnectionsPerHost = 1
         let defaultSession = URLSession(configuration: urlSessionConfiguration)
         
-         let uploadBytePartsCompletionHandler: (OneDriveManagerResult, Int?, String?) -> Void = {
-             (result: OneDriveManagerResult, nextExpectedRange, webUrl) in
+         let uploadBytePartsCompletionHandler: (OneDriveManagerResult, Int?, String?, String?) -> Void = {
+             (result: OneDriveManagerResult, nextExpectedRange, webUrl, fileId) in
              switch(result) {
                  case .Success:
                     if (nextExpectedRange != nil) {returnNextExpectedRange = nextExpectedRange!}
                     if (webUrl != nil) { returnWebUrl = webUrl}
+                    if (fileId != nil) { returnFileId = fileId}
                     dispatchSemaphore.signal()
                     dispatchGroup.leave()
                  case .Failure(let error):
-                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil)
+                    completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil, nil)
              }
          }
         
@@ -219,12 +285,12 @@ class OneDriveManager : NSObject {
         }
         dispatchGroup.notify(queue: dispatchQueue) {
             DispatchQueue.main.async {
-                completion(OneDriveManagerResult.Success, returnWebUrl)
+                completion(OneDriveManagerResult.Success, returnWebUrl, returnFileId)
             }
         }
     }
     
-    func uploadByteParts(defaultSession: URLSession, uploadUrl:String, data:Data,startPointer:Int, endPointer:Int, imageSize:Int, completion: @escaping (OneDriveManagerResult, _ nextExpectedRangeStart: Int?, _ webUrl: String?) -> Void) {
+    func uploadByteParts(defaultSession: URLSession, uploadUrl:String, data:Data,startPointer:Int, endPointer:Int, imageSize:Int, completion: @escaping (OneDriveManagerResult, _ nextExpectedRangeStart: Int?, _ webUrl: String?, _ fileId: String?) -> Void) {
         
         var dataEndPointer = endPointer
         if (endPointer + 1 >= imageSize){
@@ -265,13 +331,15 @@ class OneDriveManager : NSObject {
                     let strNextExpectedRanges = uploadTaskObj.nextExpectedRanges![0]
                     let index = strNextExpectedRanges.index(of: "-")!
                     let strNextExpectedRangeStart = strNextExpectedRanges.substring(to: index)
-                    completion(OneDriveManagerResult.Success, Int(strNextExpectedRangeStart), nil)
+                    completion(OneDriveManagerResult.Success, Int(strNextExpectedRangeStart), nil, nil)
                     return
                 }
-                completion(OneDriveManagerResult.Success, nil, webUrl)
+                
+                let fileId = json["id"] as? String
+                completion(OneDriveManagerResult.Success, nil, webUrl, fileId)
             } catch  {
                 print("error trying to convert data to JSON")
-                completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil, nil)
+                completion(OneDriveManagerResult.Failure(OneDriveAPIError.GeneralError(error)), nil, nil, nil)
             }
         }
         

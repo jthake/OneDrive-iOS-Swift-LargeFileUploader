@@ -10,11 +10,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "MSALiOS/ViewController.swift"
-            timestampString = "545247438.451908"
+            timestampString = "545281169.1309659"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "170"
-            endingLineNumber = "170"
+            startingLineNumber = "182"
+            endingLineNumber = "182"
             landmarkName = "callGraphButton(_:)"
             landmarkType = "7">
          </BreakpointContent>
@@ -32,6 +32,22 @@
             startingLineNumber = "53"
             endingLineNumber = "53"
             landmarkName = "application(_:didFinishLaunchingWithOptions:)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "MSALiOS/OneDriveManager.swift"
+            timestampString = "545281169.13106"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "108"
+            endingLineNumber = "108"
+            landmarkName = "createSharingLink(fileId:completion:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

@@ -130,10 +130,22 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
                                     case .Success:
                                         print ("success on creating session (\(String(describing: uploadUrl)) (\(String(describing: expirationDateTime))")
                                         
-                                        self.oneDriveManager.uploadBytes(uploadUrl: uploadUrl!,  completion: { (result: OneDriveManagerResult, webUrl) -> Void in
+                                        self.oneDriveManager.uploadBytes(uploadUrl: uploadUrl!,  completion: { (result: OneDriveManagerResult, webUrl, fileId) -> Void in
                                             switch(result) {
                                             case .Success:
                                                 print ("Web Url of file \(webUrl)")
+                                                print ("FileId of file \(fileId)")
+                                                
+                                                self.oneDriveManager.createSharingLink(fileId: fileId!, completion: { (result: OneDriveManagerResult, sharingUrl) -> Void in
+                                                    switch(result) {
+                                                    case .Success:
+                                                        print ("Sharing Url of file \(sharingUrl)")
+                                                        
+                                                    case .Failure(let error):
+                                                        print("\(error)")
+                                                    }
+                                                })
+                                                
                                             case .Failure(let error):
                                                 print("\(error)")
                                             }
