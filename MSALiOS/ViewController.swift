@@ -133,7 +133,7 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
                                         self.oneDriveManager.uploadBytes(uploadUrl: uploadUrl!,  completion: { (result: OneDriveManagerResult, webUrl) -> Void in
                                             switch(result) {
                                             case .Success:
-                                                print ("success (\(String(describing: uploadUrl)) (\(String(describing: webUrl))")
+                                                print ("Web Url of file \(webUrl)")
                                             case .Failure(let error):
                                                 print("\(error)")
                                             }

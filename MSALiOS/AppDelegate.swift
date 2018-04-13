@@ -100,6 +100,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-
+    @available(iOS 9.0, *)
+    func application(_ application: UIApplication, open url: URL, options: [UIApplicationOpenURLOptionsKey : Any]) -> Bool {
+        
+        print("Received callback!")
+        
+        MSALPublicClientApplication.handleMSALResponse(url)
+        
+        
+        return true
+    }
 }
 
